@@ -17,6 +17,13 @@ public class UserAccountManager : MonoBehaviour
 
     void Start()
     {
+        // Establecer el contentType del passwordInputField a Password
+        if (passwordInputField != null)
+        {
+            passwordInputField.contentType = InputField.ContentType.Password;
+            passwordInputField.ForceLabelUpdate();
+        }
+
         createAccountButton.onClick.AddListener(CreateAccount);
         loginButton.onClick.AddListener(Login);
     }

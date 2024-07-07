@@ -10,10 +10,11 @@ public class Game : MonoBehaviour
     public Text textResultWeapon;
     public Button addArmorButton;
     public Button addWeaponButton;
+    public Button enemigo1; // Declaración del nuevo botón
 
     private string armorURL = "http://localhost/database_proyect/get_armors.php";
     private string weaponURL = "http://localhost/database_proyect/get_weapons.php";
-    private string addItemUrl = "http://localhost/database_proyect/create_inventory.php";
+    private string updateItemUrl = "http://localhost/database_proyect/update_inventory.php";
 
     private string userID;
 
@@ -26,8 +27,16 @@ public class Game : MonoBehaviour
         userID = PlayerPrefs.GetString("UserID", null);
         Debug.Log("User ID retrieved from PlayerPrefs: " + userID);
 
+        enemigo1.onClick.AddListener(GenerateItemsAndSetupButtons);
+    }
+
+    void GenerateItemsAndSetupButtons()
+    {
         StartCoroutine(GetRandomArmor());
         StartCoroutine(GetRandomWeapon());
+
+        addArmorButton.onClick.RemoveAllListeners();
+        addWeaponButton.onClick.RemoveAllListeners();
 
         addArmorButton.onClick.AddListener(AddArmorToInventory);
         addWeaponButton.onClick.AddListener(AddWeaponToInventory);
@@ -52,7 +61,9 @@ public class Game : MonoBehaviour
 
                 if (selectedArmor != null)
                 {
-                    textResultArmor.text = $"Selected Armor:\nID: {selectedArmor.id}\nName: {selectedArmor.name}\nDefense: {selectedArmor.defense}\nQuality: {selectedArmor.quality}\nDrop Rate: {selectedArmor.drop_rate}%";
+                    //textResultArmor.text = $"Selected Armor:\nID: {selectedArmor.id}\nName: {selectedArmor.name}\nDefense: {selectedArmor.defense}\nQuality: {selectedArmor.quality}\nDrop Rate: {selectedArmor.drop_rate}%";
+
+                    textResultArmor.text = $"Name: {selectedArmor.name}\nDefense: {selectedArmor.defense}%";
                 }
             }
         }
@@ -77,7 +88,9 @@ public class Game : MonoBehaviour
 
                 if (selectedWeapon != null)
                 {
-                    textResultWeapon.text = $"Selected Weapon:\nID: {selectedWeapon.id}\nName: {selectedWeapon.name}\nAttack: {selectedWeapon.attack}\nCritical: {selectedWeapon.critical}\nQuality: {selectedWeapon.quality}\nDrop Rate: {selectedWeapon.drop_rate}%";
+                    //textResultWeapon.text = $"Selected Weapon:\nID: {selectedWeapon.id}\nName: {selectedWeapon.name}\nAttack: {selectedWeapon.attack}\nCritical: {selectedWeapon.critical}\nQuality: {selectedWeapon.quality}\nDrop Rate: {selectedWeapon.drop_rate}%";
+
+                    textResultWeapon.text = $"Name: {selectedWeapon.name}\nAttack: {selectedWeapon.attack}\nCritical: {selectedWeapon.critical}%";
                 }
             }
         }
@@ -93,7 +106,7 @@ public class Game : MonoBehaviour
 
         if (selectedArmor != null)
         {
-            StartCoroutine(AddItemToInventory("armor", selectedArmor.id));
+            StartCoroutine(UpdateItemInInventory("armor", selectedArmor.id));
         }
     }
 
@@ -107,28 +120,40 @@ public class Game : MonoBehaviour
 
         if (selectedWeapon != null)
         {
-            StartCoroutine(AddItemToInventory("weapon", selectedWeapon.id));
+            StartCoroutine(UpdateItemInInventory("weapon", selectedWeapon.id));
         }
     }
 
-    IEnumerator AddItemToInventory(string itemType, string itemId)
+    IEnumerator UpdateItemInInventory(string itemType, string itemId)
     {
-        WWWForm form = new WWWForm();
-        form.AddField("user_id", userID);
-        form.AddField("item_type", itemType);
-        form.AddField("item_id", itemId);
-
-        using (UnityWebRequest www = UnityWebRequest.Post(addItemUrl, form))
+        InventoryUpdateData updateData = new InventoryUpdateData
         {
+            id_user = userID,
+            item_type = itemType,
+            item_id = itemId
+        };
+
+        string jsonString = JsonUtility.ToJson(updateData);
+        byte[] bodyRaw = System.Text.Encoding.UTF8.GetBytes(jsonString);
+
+        using (UnityWebRequest www = new UnityWebRequest(updateItemUrl, "POST"))
+        {
+            www.uploadHandler = new UploadHandlerRaw(bodyRaw);
+            www.downloadHandler = new DownloadHandlerBuffer();
+            www.SetRequestHeader("Content-Type", "application/json");
+
+            Debug.Log("Sending data: " + jsonString);
+
             yield return www.SendWebRequest();
 
             if (www.result != UnityWebRequest.Result.Success)
             {
-                Debug.LogError("Failed to add item to inventory: " + www.error);
+                Debug.LogError("Failed to update inventory: " + www.error);
             }
             else
             {
-                Debug.Log("Item added to inventory successfully.");
+                Debug.Log("Inventory updated successfully.");
+                Debug.Log("Response: " + www.downloadHandler.text);
             }
         }
     }
@@ -155,18 +180,14 @@ public class Game : MonoBehaviour
 
         return default(T);
     }
+}
 
-    List<Armor> GetArmorList()
-    {
-        // Aquí deberías tener lógica para obtener la lista real de armaduras
-        return new List<Armor>();
-    }
-
-    List<Weapon> GetWeaponList()
-    {
-        // Aquí deberías tener lógica para obtener la lista real de armas
-        return new List<Weapon>();
-    }
+[System.Serializable]
+public class InventoryUpdateData
+{
+    public string id_user;
+    public string item_type;
+    public string item_id;
 }
 
 [System.Serializable]
